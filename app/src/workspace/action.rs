@@ -555,6 +555,12 @@ pub enum WorkspaceAction {
     },
     /// Jump to the terminal pane of the most recent agent toast
     JumpToLatestToast,
+    /// Focus the pane of the CLI agent that most urgently needs the user.
+    FocusNextAgentNeedingAttention,
+    /// Focus the next pane running a CLI agent.
+    FocusNextAgentPane,
+    /// Focus the previous pane running a CLI agent.
+    FocusPreviousAgentPane,
     /// Open a file in a new tab with a code pane
     OpenFileInNewTab {
         full_path: PathBuf,
@@ -1163,6 +1169,9 @@ impl WorkspaceAction {
             | StartNewConversation { .. }
             | UndoRevertInCodeReviewPane { .. }
             | JumpToLatestToast
+            | FocusNextAgentNeedingAttention
+            | FocusNextAgentPane
+            | FocusPreviousAgentPane
             | NavigatePrevPaneOrPanel
             | NavigateNextPaneOrPanel
             | ToggleProjectExplorer

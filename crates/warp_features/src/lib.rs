@@ -972,6 +972,10 @@ pub enum FeatureFlag {
     /// signaled or torn down.
     CtrlCCancelsThirdPartyHarness,
 
+    /// Actions that move focus between panes running CLI agents, prioritizing agents that need
+    /// the user.
+    AgentAttentionNavigation,
+
     /// Uses fzf or atuin for history search instead of Warp's command search.
     ShellWidgetHandoff,
 
@@ -1064,6 +1068,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::BoxDrawingGlyphs,
     FeatureFlag::PricingTransparency,
     FeatureFlag::CtrlCCancelsThirdPartyHarness,
+    FeatureFlag::AgentAttentionNavigation,
     FeatureFlag::WarpingModelName,
     FeatureFlag::LrcActivitySignal,
     FeatureFlag::StoredScreenshots,

@@ -1,4 +1,5 @@
 pub(crate) mod agent_cli_launch_modal;
+mod agent_navigation;
 pub(crate) mod auto_handoff_sleep_modal;
 mod build_plan_migration_modal;
 pub(crate) mod cloud_agent_capacity_modal;
@@ -390,7 +391,9 @@ use crate::terminal::available_shells::AvailableShells;
 use crate::terminal::block_list_viewport::InputMode;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::{PluginModalKind, plugin_manager_for};
-use crate::terminal::cli_agent_sessions::{CLIAgentSessionsModel, CLIAgentSessionsModelEvent};
+use crate::terminal::cli_agent_sessions::{
+    CLIAgentSessionStatus, CLIAgentSessionsModel, CLIAgentSessionsModelEvent,
+};
 use crate::terminal::enable_auto_reload_modal::{
     EnableAutoReloadModal, EnableAutoReloadModalEvent,
 };
@@ -3736,6 +3739,43 @@ impl Workspace {
         if self.agent_conversation_event_affects_vertical_tabs(event, ctx) {
             ctx.notify();
         }
+    }
+
+    /// Returns this workspace's terminal panes in vertical tabs order, with the CLI agent state
+    /// used to navigate between agents.
+    fn terminal_pane_entries_for_agent_navigation(
+        &self,
+        ctx: &AppContext,
+    ) -> Vec<agent_navigation::TerminalPaneEntry> {
+        let sessions = CLIAgentSessionsModel::as_ref(ctx);
+        let notifications = AgentNotificationsModel::as_ref(ctx).notifications();
+        let mut entries = Vec::new();
+        for tab in &self.tabs {
+            let pane_group = tab.pane_group.as_ref(ctx);
+            for pane_id in pane_group.visible_pane_ids() {
+                let Some(terminal_view) = pane_group.terminal_view_from_pane_id(pane_id, ctx)
+                else {
+                    continue;
+                };
+                let terminal_view_id = terminal_view.id();
+                let agent = sessions.session(terminal_view_id).map(|session| {
+                    let attention =
+                        if matches!(session.status, CLIAgentSessionStatus::Blocked { .. }) {
+                            Some(agent_navigation::AgentAttention::Blocked)
+                        } else if notifications.has_unread_for_terminal_view(terminal_view_id) {
+                            Some(agent_navigation::AgentAttention::Unread)
+                        } else {
+                            None
+                        };
+                    agent_navigation::AgentPaneState { attention }
+                });
+                entries.push(agent_navigation::TerminalPaneEntry {
+                    terminal_view_id,
+                    agent,
+                });
+            }
+        }
+        entries
     }
 
     fn workspace_contains_terminal_view(
@@ -25716,6 +25756,35 @@ impl TypedActionView for Workspace {
                             stack.dismiss_toast_by_uuid(&latest_uuid, ctx);
                         });
                     }
+                }
+            }
+            FocusNextAgentNeedingAttention => {
+                let panes = self.terminal_pane_entries_for_agent_navigation(ctx);
+                let current = self.active_session_view(ctx).map(|view| view.id());
+                if let Some(terminal_view_id) =
+                    agent_navigation::next_agent_needing_attention(&panes, current)
+                {
+                    self.handle_action(
+                        &WorkspaceAction::FocusTerminalViewInWorkspace { terminal_view_id },
+                        ctx,
+                    );
+                }
+            }
+            FocusNextAgentPane | FocusPreviousAgentPane => {
+                let direction = if matches!(action, FocusNextAgentPane) {
+                    agent_navigation::Direction::Next
+                } else {
+                    agent_navigation::Direction::Previous
+                };
+                let panes = self.terminal_pane_entries_for_agent_navigation(ctx);
+                let current = self.active_session_view(ctx).map(|view| view.id());
+                if let Some(terminal_view_id) =
+                    agent_navigation::adjacent_agent_pane(&panes, current, direction)
+                {
+                    self.handle_action(
+                        &WorkspaceAction::FocusTerminalViewInWorkspace { terminal_view_id },
+                        ctx,
+                    );
                 }
             }
             ScrollToSettingsWidget { page, widget_id } => {

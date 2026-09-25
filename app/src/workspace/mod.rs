@@ -1486,6 +1486,32 @@ pub fn init(app: &mut AppContext) {
     .with_context_predicate(id!("Workspace") & id!(flags::IS_ANY_AI_ENABLED))
     .with_group(bindings::BindingGroup::WarpAi.as_str())]);
 
+    app.register_editable_bindings(
+        [
+            EditableBinding::new(
+                "workspace:focus_next_agent_needing_attention",
+                "Focus next coding agent needing attention",
+                WorkspaceAction::FocusNextAgentNeedingAttention,
+            ),
+            EditableBinding::new(
+                "workspace:focus_next_agent_pane",
+                "Focus next coding agent pane",
+                WorkspaceAction::FocusNextAgentPane,
+            ),
+            EditableBinding::new(
+                "workspace:focus_previous_agent_pane",
+                "Focus previous coding agent pane",
+                WorkspaceAction::FocusPreviousAgentPane,
+            ),
+        ]
+        .map(|binding| {
+            binding
+                .with_enabled(|| FeatureFlag::AgentAttentionNavigation.is_enabled())
+                .with_context_predicate(id!("Workspace"))
+                .with_group(bindings::BindingGroup::WarpAi.as_str())
+        }),
+    );
+
     app.register_editable_bindings([EditableBinding::new(
         "workspace:jump_to_latest_toast",
         "Jump to latest agent task",
