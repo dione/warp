@@ -2,6 +2,7 @@ pub mod event;
 pub mod listener;
 #[cfg(not(target_family = "wasm"))]
 pub(crate) mod plugin_manager;
+pub mod resume;
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -361,6 +362,12 @@ pub struct CLIAgentSessionsModel {
     /// Source of `CtrlCCancelState::armed_token` values. Monotonically increasing;
     /// never reused, so a stale callback can never alias a newer window.
     next_ctrl_c_token: u64,
+    /// Claude Code session IDs already scheduled for resumption in a restored pane, so a session
+    /// persisted in several panes is only resumed once.
+    claimed_claude_resume_session_ids: HashSet<String>,
+    /// Last resumable Claude Code session ID observed per terminal view, used to detect changes
+    /// that should be persisted.
+    observed_claude_session_ids: HashMap<EntityId, String>,
 }
 
 impl Entity for CLIAgentSessionsModel {
@@ -376,7 +383,32 @@ impl CLIAgentSessionsModel {
             plugin_auto_failures: HashSet::new(),
             ctrl_c_cancel_state: HashMap::new(),
             next_ctrl_c_token: 0,
+            claimed_claude_resume_session_ids: HashSet::new(),
+            observed_claude_session_ids: HashMap::new(),
         }
+    }
+
+    /// Records the terminal's current resumable Claude Code session ID and returns whether it
+    /// changed since the last call.
+    pub fn observe_claude_session_id_change(&mut self, terminal_view_id: EntityId) -> bool {
+        let current = self
+            .sessions
+            .get(&terminal_view_id)
+            .and_then(resume::resumable_claude_session_id)
+            .map(str::to_owned);
+        let previous = match &current {
+            Some(id) => self
+                .observed_claude_session_ids
+                .insert(terminal_view_id, id.clone()),
+            None => self.observed_claude_session_ids.remove(&terminal_view_id),
+        };
+        previous != current
+    }
+
+    /// Claims a Claude Code session for resumption, returning `false` if it was already claimed.
+    pub fn claim_claude_session_resume(&mut self, session_id: &str) -> bool {
+        self.claimed_claude_resume_session_ids
+            .insert(session_id.to_owned())
     }
 
     pub fn session(&self, terminal_view_id: EntityId) -> Option<&CLIAgentSession> {

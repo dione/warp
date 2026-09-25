@@ -1943,6 +1943,17 @@ define_settings_group!(AISettings, settings: [
         description: "Whether CLI agent Rich Input automatically closes after the user submits a prompt.",
     }
 
+    resume_claude_sessions_on_restore: ResumeClaudeSessionsOnRestore {
+        type: bool,
+        default: true,
+        supported_platforms: SupportedPlatforms::DESKTOP,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "agents.third_party.resume_claude_sessions_on_restore",
+        description: "Whether Claude Code sessions running in restored panes are resumed with `claude --resume` on startup.",
+    }
+
     // When enabled, the Rich Input editor submits on Ctrl+Enter instead of Enter.
     // Enter inserts a newline; Ctrl+Enter submits.
     submit_on_ctrl_enter: SubmitRichInputOnCtrlEnter {

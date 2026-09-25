@@ -121,8 +121,10 @@ use crate::settings_view::SettingsSection;
 use crate::settings_view::mcp_servers_page::MCPServersSettingsPage;
 use crate::shell_indicator::ShellIndicatorType;
 use crate::terminal::available_shells::{AvailableShell, AvailableShells};
+use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::PluginModalKind;
+use crate::terminal::cli_agent_sessions::resume::claude_resume_command;
 use crate::terminal::general_settings::{GeneralSettings, GeneralSettingsChangedEvent};
 #[cfg(feature = "local_tty")]
 use crate::terminal::local_tty::TerminalManager as LocalTtyTerminalManager;
@@ -1708,6 +1710,22 @@ impl PaneGroup {
 
                 let terminal_view_id = terminal_view.id();
 
+                if let Some(resume_command) = terminal_snapshot
+                    .claude_session_id
+                    .as_deref()
+                    .filter(|_| *AISettings::as_ref(ctx).resume_claude_sessions_on_restore)
+                    .filter(|session_id| {
+                        CLIAgentSessionsModel::handle(ctx).update(ctx, |sessions, _| {
+                            sessions.claim_claude_session_resume(session_id)
+                        })
+                    })
+                    .and_then(claude_resume_command)
+                {
+                    terminal_view.update(ctx, |terminal, ctx| {
+                        terminal.set_pending_command_queue(vec![resume_command], ctx);
+                    });
+                }
+
                 let pane_data = TerminalPane::new(
                     uuid.0,
                     terminal_manager,
@@ -2183,6 +2201,7 @@ impl PaneGroup {
                             active_profile_id: None,
                             conversation_ids_to_restore: Vec::new(),
                             active_conversation_id: None,
+                            claude_session_id: None,
                         })
                     }
                 };

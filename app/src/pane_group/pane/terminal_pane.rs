@@ -58,6 +58,7 @@ use crate::server::server_api::ServerApiProvider;
 use crate::server::team_scope::RequestTeamScope;
 use crate::session_management::SessionNavigationData;
 use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
+use crate::terminal::cli_agent_sessions::resume::resumable_claude_session_id;
 use crate::terminal::general_settings::GeneralSettings;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::shared_session::SharedSessionSource;
@@ -478,6 +479,7 @@ impl PaneContent for TerminalPane {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             })
         } else if let Some(task_id) = view
             .ambient_agent_view_model()
@@ -508,6 +510,7 @@ impl PaneContent for TerminalPane {
                     active_profile_id: None,
                     conversation_ids_to_restore: vec![],
                     active_conversation_id: None,
+                    claude_session_id: None,
                 })
             }
         } else {
@@ -538,6 +541,11 @@ impl PaneContent for TerminalPane {
                         .active_conversation_id()
                 });
 
+            let claude_session_id = CLIAgentSessionsModel::as_ref(app)
+                .session(self.terminal_view(app).id())
+                .and_then(resumable_claude_session_id)
+                .map(str::to_owned);
+
             LeafContents::Terminal(TerminalPaneSnapshot {
                 uuid: self.uuid.clone(),
                 cwd: view.pwd_if_local(app),
@@ -549,6 +557,7 @@ impl PaneContent for TerminalPane {
                 active_profile_id,
                 conversation_ids_to_restore,
                 active_conversation_id,
+                claude_session_id,
             })
         }
     }

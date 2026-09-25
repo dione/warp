@@ -216,6 +216,8 @@ pub struct TerminalPaneSnapshot {
     /// The active conversation ID if the agent view was open in fullscreen mode.
     /// When `Some`, the agent view should be restored to fullscreen for this conversation.
     pub active_conversation_id: Option<AIConversationId>,
+    /// Claude Code session to resume with `claude --resume` when the pane is restored.
+    pub claude_session_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

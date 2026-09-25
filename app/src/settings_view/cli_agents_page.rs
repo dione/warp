@@ -42,8 +42,8 @@ use crate::appearance::Appearance;
 use crate::menu::{MenuItem, MenuItemFields};
 use crate::settings::{
     AISettings, AISettingsChangedEvent, AutoDismissRichInputAfterSubmit,
-    AutoOpenRichInputOnCLIAgentStart, AutoToggleRichInput, ShouldRenderCLIAgentToolbar,
-    SubmitRichInputOnCtrlEnter,
+    AutoOpenRichInputOnCLIAgentStart, AutoToggleRichInput, ResumeClaudeSessionsOnRestore,
+    ShouldRenderCLIAgentToolbar, SubmitRichInputOnCtrlEnter,
 };
 use crate::terminal::CLIAgent;
 use crate::util::bindings;
@@ -131,6 +131,7 @@ impl CLIAgentsPageView {
             Box::new(CLIAgentAutoOpenRichInputWidget::default()),
             Box::new(CLIAgentAutoDismissRichInputWidget::default()),
             Box::new(CLIAgentSubmitRichInputWidget::default()),
+            Box::new(ResumeClaudeSessionsWidget::default()),
             Box::new(CLIAgentCommandsWidget),
             Box::new(CLIAgentToolbarLayoutWidget),
         ];
@@ -238,6 +239,7 @@ pub enum CLIAgentsPageAction {
     ToggleAutoOpenRichInputOnCLIAgentStart,
     ToggleAutoDismissRichInputAfterSubmit,
     ToggleSubmitRichInputOnCtrlEnter,
+    ToggleResumeClaudeSessionsOnRestore,
     RemoveCLIAgentToolbarEnabledCommand(String),
     SetCLIAgentForCommand {
         pattern: String,
@@ -302,6 +304,16 @@ impl TypedActionView for CLIAgentsPageView {
                 });
                 ctx.notify();
             }
+            CLIAgentsPageAction::ToggleResumeClaudeSessionsOnRestore => {
+                AISettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(
+                        settings
+                            .resume_claude_sessions_on_restore
+                            .toggle_and_save_value(ctx)
+                    );
+                });
+                ctx.notify();
+            }
             CLIAgentsPageAction::RemoveCLIAgentToolbarEnabledCommand(command) => {
                 AISettings::handle(ctx).update(ctx, |settings, ctx| {
                     settings.remove_cli_agent_footer_enabled_command(command, ctx);
@@ -358,6 +370,15 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
                 )),
                 context,
                 flags::CLI_AGENT_FOOTER_ENABLED,
+            )
+            .with_group(bindings::BindingGroup::WarpAi),
+            ToggleSettingActionPair::new(
+                "resume Claude Code sessions on startup",
+                builder(SettingsAction::CLIAgents(
+                    CLIAgentsPageAction::ToggleResumeClaudeSessionsOnRestore,
+                )),
+                context,
+                flags::RESUME_CLAUDE_SESSIONS_ON_RESTORE_FLAG,
             )
             .with_group(bindings::BindingGroup::WarpAi),
         ],
@@ -611,6 +632,36 @@ impl SettingsWidget for CLIAgentAutoDismissRichInputWidget {
             "Auto dismiss Rich Input after prompt submission",
             CLIAgentsPageAction::ToggleAutoDismissRichInputAfterSubmit,
             *AISettings::as_ref(app).auto_dismiss_rich_input_after_submit,
+            true,
+            self.toggle.clone(),
+            &view.local_only_icon_tooltip_states,
+            app,
+        )
+    }
+}
+
+#[derive(Default)]
+struct ResumeClaudeSessionsWidget {
+    toggle: SwitchStateHandle,
+}
+
+impl SettingsWidget for ResumeClaudeSessionsWidget {
+    type View = CLIAgentsPageView;
+
+    fn search_terms(&self) -> &str {
+        "third party cli coding agent claude resume restore session startup"
+    }
+
+    fn render(
+        &self,
+        view: &Self::View,
+        _appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        render_ai_setting_toggle::<ResumeClaudeSessionsOnRestore>(
+            "Resume Claude Code sessions on startup",
+            CLIAgentsPageAction::ToggleResumeClaudeSessionsOnRestore,
+            *AISettings::as_ref(app).resume_claude_sessions_on_restore,
             true,
             self.toggle.clone(),
             &view.local_only_icon_tooltip_states,

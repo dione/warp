@@ -394,6 +394,7 @@ fn test_terminal_window_snapshot(vertical_tabs_panel_open: bool) -> WindowSnapsh
                     active_profile_id: None,
                     conversation_ids_to_restore: vec![],
                     active_conversation_id: None,
+                    claude_session_id: None,
                 }),
             }),
             default_directory_color: None,
@@ -456,6 +457,49 @@ fn test_sqlite_round_trips_vertical_tabs_panel_open() {
 }
 
 #[test]
+fn test_sqlite_round_trips_claude_session_id() {
+    let tempdir = tempfile::tempdir().expect("tempdir should be created");
+    let database_path = tempdir.path().join("warp.sqlite");
+    let mut conn = setup_database(&database_path).expect("database should initialize");
+    let session_id = "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b";
+    let mut claude_window = test_terminal_window_snapshot(false);
+    if let PaneNodeSnapshot::Leaf(LeafSnapshot {
+        contents: LeafContents::Terminal(terminal),
+        ..
+    }) = &mut claude_window.tabs[0].root
+    {
+        terminal.claude_session_id = Some(session_id.to_owned());
+    }
+
+    let app_state = AppState {
+        windows: vec![claude_window, test_terminal_window_snapshot(true)],
+        active_window_index: Some(0),
+        block_lists: Default::default(),
+        running_mcp_servers: Default::default(),
+    };
+
+    save_app_state(&mut conn, &app_state).expect("app state should save");
+
+    let restored = read_sqlite_data(&mut conn, None, PersistedDataScope::Full)
+        .expect("app state should load")
+        .app_state
+        .expect("app state should be present for the full scope");
+
+    let claude_session_ids = restored
+        .windows
+        .iter()
+        .map(|window| match &window.tabs[0].root {
+            PaneNodeSnapshot::Leaf(LeafSnapshot {
+                contents: LeafContents::Terminal(terminal),
+                ..
+            }) => terminal.claude_session_id.clone(),
+            _ => panic!("Expected terminal pane leaf"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(claude_session_ids, vec![Some(session_id.to_owned()), None]);
+}
+
+#[test]
 fn test_sqlite_round_trips_window_team_uid() {
     let tempdir = tempfile::tempdir().expect("tempdir should be created");
     let database_path = tempdir.path().join("warp.sqlite");
@@ -509,6 +553,7 @@ fn test_sqlite_round_trips_custom_vertical_tabs_title() {
                         active_profile_id: None,
                         conversation_ids_to_restore: vec![],
                         active_conversation_id: None,
+                        claude_session_id: None,
                     }),
                 }),
                 default_directory_color: None,
@@ -675,6 +720,7 @@ fn test_sqlite_round_trips_tab_groups() {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             }),
         }),
         default_directory_color: None,
@@ -703,6 +749,7 @@ fn test_sqlite_round_trips_tab_groups() {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             }),
         }),
         default_directory_color: None,
@@ -799,6 +846,7 @@ fn test_sqlite_round_trips_pinned_state() {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             }),
         }),
         default_directory_color: None,
@@ -827,6 +875,7 @@ fn test_sqlite_round_trips_pinned_state() {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             }),
         }),
         default_directory_color: None,
@@ -855,6 +904,7 @@ fn test_sqlite_round_trips_pinned_state() {
                 active_profile_id: None,
                 conversation_ids_to_restore: vec![],
                 active_conversation_id: None,
+                claude_session_id: None,
             }),
         }),
         default_directory_color: None,

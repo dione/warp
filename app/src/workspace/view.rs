@@ -3787,6 +3787,17 @@ impl Workspace {
         {
             ctx.notify();
         }
+
+        // Every workspace observes the event, but the change is only reported once, so the app
+        // state is saved once. Saving promptly keeps the session resumable after a crash. Sessions
+        // torn down while quitting must not overwrite the snapshot they should be resumed from.
+        let claude_session_id_changed = CLIAgentSessionsModel::handle(ctx)
+            .update(ctx, |sessions, _| {
+                sessions.observe_claude_session_id_change(event.terminal_view_id())
+            });
+        if claude_session_id_changed && ctx.windows().stage() != ApplicationStage::Terminating {
+            ctx.dispatch_global_action("workspace:save_app", ());
+        }
     }
 
     /// Handle session settings changes.
@@ -23609,6 +23620,11 @@ impl Workspace {
             context
                 .set
                 .insert(flags::AUTO_DISMISS_RICH_INPUT_AFTER_SUBMIT_FLAG);
+        }
+        if *ai_settings.resume_claude_sessions_on_restore.value() {
+            context
+                .set
+                .insert(flags::RESUME_CLAUDE_SESSIONS_ON_RESTORE_FLAG);
         }
         if *ai_settings.show_agent_notifications.value() {
             context.set.insert(flags::AGENT_IN_APP_NOTIFICATIONS_FLAG);

@@ -1274,3 +1274,56 @@ fn second_ctrl_c_while_armed_reuses_the_existing_window() {
         });
     });
 }
+
+fn claude_session_with_id(session_id: Option<&str>) -> CLIAgentSession {
+    CLIAgentSession {
+        agent: CLIAgent::Claude,
+        status: CLIAgentSessionStatus::InProgress,
+        session_context: CLIAgentSessionContext {
+            session_id: session_id.map(str::to_owned),
+            ..Default::default()
+        },
+        input_state: CLIAgentInputState::Closed,
+        should_auto_toggle_input: false,
+        listener: None,
+        plugin_version: None,
+        draft_text: None,
+        remote_host: None,
+        custom_command_prefix: None,
+        received_rich_notification: false,
+    }
+}
+
+#[test]
+fn observe_claude_session_id_change_reports_each_change_once() {
+    App::test((), |mut app| async move {
+        let model = app.add_singleton_model(|_| CLIAgentSessionsModel::new());
+        let view_id = EntityId::new();
+
+        model.update(&mut app, |m, ctx| {
+            assert!(!m.observe_claude_session_id_change(view_id));
+
+            m.set_session(view_id, claude_session_with_id(None), ctx);
+            assert!(!m.observe_claude_session_id_change(view_id));
+
+            m.set_session(view_id, claude_session_with_id(Some("first")), ctx);
+            assert!(m.observe_claude_session_id_change(view_id));
+            assert!(!m.observe_claude_session_id_change(view_id));
+
+            m.set_session(view_id, claude_session_with_id(Some("second")), ctx);
+            assert!(m.observe_claude_session_id_change(view_id));
+
+            m.remove_session(view_id, ctx);
+            assert!(m.observe_claude_session_id_change(view_id));
+            assert!(!m.observe_claude_session_id_change(view_id));
+        });
+    });
+}
+
+#[test]
+fn claim_claude_session_resume_only_succeeds_once_per_id() {
+    let mut model = CLIAgentSessionsModel::new();
+    assert!(model.claim_claude_session_resume("first"));
+    assert!(!model.claim_claude_session_resume("first"));
+    assert!(model.claim_claude_session_resume("second"));
+}
