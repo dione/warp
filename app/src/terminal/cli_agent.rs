@@ -425,21 +425,7 @@ impl CLIAgent {
         aliases: Option<&HashMap<SmolStr, String>>,
         ctx: &AppContext,
     ) -> Option<CLIAgent> {
-        let trimmed = command.trim_start();
-        let first_word = Self::extract_first_command(trimmed, escape_char)?;
-
-        // Resolve the full command through aliases. If the first word matches an
-        // alias, replace it with the alias value to produce the resolved command.
-        let resolved_command: Cow<'_, str> = aliases
-            .and_then(|a| a.get(first_word.as_str()))
-            .map(|alias_value| {
-                let rest = trimmed
-                    .find(first_word.as_str())
-                    .map(|pos| &trimmed[pos + first_word.len()..])
-                    .unwrap_or("");
-                Cow::Owned(format!("{}{}", alias_value.trim(), rest))
-            })
-            .unwrap_or(Cow::Borrowed(trimmed));
+        let resolved_command = Self::resolve_alias(command, escape_char, aliases)?;
 
         // Check if resolved command matches any known CLI agent.
         // Also matches `aifx agent run claude` as Claude for Uber employees.
@@ -450,6 +436,29 @@ impl CLIAgent {
                     || (matches!(agent, CLIAgent::Claude)
                         && Self::is_aifx_agent_run_claude(&resolved_command, ctx))
             })
+    }
+
+    /// Returns the command with its first word replaced by its alias value, if the first word is
+    /// an alias. Returns `None` if the command has no first word.
+    pub fn resolve_alias<'a>(
+        command: &'a str,
+        escape_char: Option<EscapeChar>,
+        aliases: Option<&HashMap<SmolStr, String>>,
+    ) -> Option<Cow<'a, str>> {
+        let trimmed = command.trim_start();
+        let first_word = Self::extract_first_command(trimmed, escape_char)?;
+        Some(
+            aliases
+                .and_then(|a| a.get(first_word.as_str()))
+                .map(|alias_value| {
+                    let rest = trimmed
+                        .find(first_word.as_str())
+                        .map(|pos| &trimmed[pos + first_word.len()..])
+                        .unwrap_or("");
+                    Cow::Owned(format!("{}{}", alias_value.trim(), rest))
+                })
+                .unwrap_or(Cow::Borrowed(trimmed)),
+        )
     }
 
     /// Returns true if the resolved command is `aifx agent run claude` (Uber's

@@ -357,6 +357,31 @@ impl TerminalView {
                 || active_block.is_eligible_for_agent_handoff())
     }
 
+    /// Returns the active long-running command with its leading alias expanded.
+    pub(crate) fn active_long_running_command_with_alias_resolved(
+        &self,
+        ctx: &AppContext,
+    ) -> Option<String> {
+        let command = {
+            let model = self.model.lock();
+            let active_block = model.block_list().active_block();
+            if !active_block.is_active_and_long_running() {
+                return None;
+            }
+            active_block.command_with_secrets_obfuscated(false)
+        };
+        let session_id = self.active_block_session_id()?;
+        self.sessions.read(ctx, |sessions, _| {
+            let session = sessions.get(session_id)?;
+            CLIAgent::resolve_alias(
+                &command,
+                Some(session.shell_family().escape_char()),
+                Some(session.aliases()),
+            )
+            .map(|command| command.into_owned())
+        })
+    }
+
     /// Returns the detected CLI agent for the active block's command, if any.
     ///
     /// This method resolves aliases before detecting the CLI agent. For example,

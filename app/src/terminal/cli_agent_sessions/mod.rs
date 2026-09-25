@@ -394,8 +394,8 @@ impl CLIAgentSessionsModel {
         let current = self
             .sessions
             .get(&terminal_view_id)
-            .and_then(resume::resumable_claude_session_id)
-            .map(str::to_owned);
+            .and_then(|session| resume::ResumableClaudeSession::from_session(session, None))
+            .map(|session| session.session_id);
         let previous = match &current {
             Some(id) => self
                 .observed_claude_session_ids

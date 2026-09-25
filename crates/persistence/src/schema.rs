@@ -420,6 +420,7 @@ diesel::table! {
         conversation_ids -> Nullable<Text>,
         active_conversation_id -> Nullable<Text>,
         cli_agent_session_id -> Nullable<Text>,
+        cli_agent_launch_args -> Nullable<Text>,
     }
 }
 

@@ -124,7 +124,6 @@ use crate::terminal::available_shells::{AvailableShell, AvailableShells};
 use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::PluginModalKind;
-use crate::terminal::cli_agent_sessions::resume::claude_resume_command;
 use crate::terminal::general_settings::{GeneralSettings, GeneralSettingsChangedEvent};
 #[cfg(feature = "local_tty")]
 use crate::terminal::local_tty::TerminalManager as LocalTtyTerminalManager;
@@ -1713,18 +1712,19 @@ impl PaneGroup {
                 let terminal_view_id = terminal_view.id();
 
                 if let Some(resume_command) = terminal_snapshot
-                    .claude_session_id
-                    .as_deref()
+                    .claude_session
+                    .as_ref()
                     .filter(|_| {
                         can_resume_claude_session
                             && *AISettings::as_ref(ctx).resume_claude_sessions_on_restore
                     })
-                    .filter(|session_id| {
+                    .filter(|session| session.transcript_exists())
+                    .filter(|session| {
                         CLIAgentSessionsModel::handle(ctx).update(ctx, |sessions, _| {
-                            sessions.claim_claude_session_resume(session_id)
+                            sessions.claim_claude_session_resume(&session.session_id)
                         })
                     })
-                    .and_then(claude_resume_command)
+                    .and_then(|session| session.resume_command())
                 {
                     terminal_view.update(ctx, |terminal, ctx| {
                         terminal.set_pending_command_queue(vec![resume_command], ctx);
@@ -2206,7 +2206,7 @@ impl PaneGroup {
                             active_profile_id: None,
                             conversation_ids_to_restore: Vec::new(),
                             active_conversation_id: None,
-                            claude_session_id: None,
+                            claude_session: None,
                         })
                     }
                 };

@@ -435,6 +435,8 @@ pub struct TerminalPane {
     pub active_conversation_id: Option<String>,
     /// Session ID of the CLI agent (e.g. Claude Code) running in the pane, used to resume it.
     pub cli_agent_session_id: Option<String>,
+    /// This is serialized JSON data for a Vec<String> of CLI agent launch flags to resume with.
+    pub cli_agent_launch_args: Option<String>,
 }
 
 #[derive(Identifiable, Queryable, Selectable)]
@@ -615,6 +617,8 @@ pub struct NewTerminalPane {
     pub active_conversation_id: Option<String>,
     /// Session ID of the CLI agent (e.g. Claude Code) running in the pane, used to resume it.
     pub cli_agent_session_id: Option<String>,
+    /// This is serialized JSON data for a Vec<String> of CLI agent launch flags to resume with.
+    pub cli_agent_launch_args: Option<String>,
 }
 
 #[derive(Insertable)]
