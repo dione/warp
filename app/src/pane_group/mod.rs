@@ -1652,6 +1652,8 @@ impl PaneGroup {
                     .cwd
                     .map(PathBuf::from)
                     .filter(|path| path.is_dir());
+                // Claude Code scopes session lookup to the directory it was started in.
+                let can_resume_claude_session = startup_directory.is_some();
 
                 // Filter conversation IDs to only include those that have task messages
                 // and are not entirely passive (ignored suggestions).
@@ -1713,7 +1715,10 @@ impl PaneGroup {
                 if let Some(resume_command) = terminal_snapshot
                     .claude_session_id
                     .as_deref()
-                    .filter(|_| *AISettings::as_ref(ctx).resume_claude_sessions_on_restore)
+                    .filter(|_| {
+                        can_resume_claude_session
+                            && *AISettings::as_ref(ctx).resume_claude_sessions_on_restore
+                    })
                     .filter(|session_id| {
                         CLIAgentSessionsModel::handle(ctx).update(ctx, |sessions, _| {
                             sessions.claim_claude_session_resume(session_id)
